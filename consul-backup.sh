@@ -39,11 +39,12 @@ AWS_SECURITY_TOKEN=$(echo $LEASE_DATA | jq -r .data.security_token)
 echo "Lease ID: $LEASE_ID"
 
 DATE=$(date -R)
-COMMAND="PUT\n\napplication/octet-stream\n$DATE\nx-amz-security-token:$AWS_SECURITY_TOKEN\n/$BUCKET/$PREFIX/$FILE_NAME"
+S3PATH=$PREFIX/$FILE_NAME
+COMMAND="PUT\n\napplication/octet-stream\n$DATE\nx-amz-security-token:$AWS_SECURITY_TOKEN\n/$BUCKET/$S3PATH"
 ENCODED=$(echo -en $COMMAND | openssl sha1 -hmac $AWS_SECRET_ACCESS_KEY -binary | base64)
 
-echo "Uploading to S3..."
-curl -f -s -X PUT -T "$FILE_PATH" -H "Host: $BUCKET.s3.amazonaws.com" -H "Date: $DATE" -H "Content-Type: application/octet-stream" -H "Authorization: AWS $AWS_ACCESS_KEY_ID:$ENCODED" -H "X-AMZ-Security-Token: $AWS_SECURITY_TOKEN" https://$BUCKET.s3.amazonaws.com/$PREFIX/$FILE_NAME
+echo "Uploading to S3: $S3PATH"
+curl -f -s -X PUT -T "$FILE_PATH" -H "Host: $BUCKET.s3.amazonaws.com" -H "Date: $DATE" -H "Content-Type: application/octet-stream" -H "Authorization: AWS $AWS_ACCESS_KEY_ID:$ENCODED" -H "X-AMZ-Security-Token: $AWS_SECURITY_TOKEN" "https://$BUCKET.s3.amazonaws.com/$S3PATH"
 BACKUP_RESULT=$?
 echo "Upload complete"
 
