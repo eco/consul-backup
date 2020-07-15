@@ -43,7 +43,7 @@ COMMAND="PUT\n\napplication/octet-stream\n$DATE\nx-amz-security-token:$AWS_SECUR
 ENCODED=$(echo -en $COMMAND | openssl sha1 -hmac $AWS_SECRET_ACCESS_KEY -binary | base64)
 
 echo "Uploading to S3..."
-curl -s -X PUT -T "$FILE_PATH" -H "Host: $BUCKET.s3.amazonaws.com" -H "Date: $DATE" -H "Content-Type: application/octet-stream" -H "Authorization: AWS $AWS_ACCESS_KEY_ID:$ENCODED" -H "X-AMZ-Security-Token: $AWS_SECURITY_TOKEN" https://$BUCKET.s3.amazonaws.com/$PREFIX/$FILE_NAME
+curl -f -s -X PUT -T "$FILE_PATH" -H "Host: $BUCKET.s3.amazonaws.com" -H "Date: $DATE" -H "Content-Type: application/octet-stream" -H "Authorization: AWS $AWS_ACCESS_KEY_ID:$ENCODED" -H "X-AMZ-Security-Token: $AWS_SECURITY_TOKEN" https://$BUCKET.s3.amazonaws.com/$PREFIX/$FILE_NAME
 BACKUP_RESULT=$?
 echo "Upload complete"
 
