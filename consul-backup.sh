@@ -7,6 +7,8 @@
 # jq
 # mktemp
 # consul
+# sed
+# s3cmd
 
 ######################
 # CONFIGURATION
@@ -25,10 +27,12 @@ CONSUL_HTTP_ADDR="http://$CONSUL_IP:8500"
 export CONSUL_HTTP_ADDR
 
 TMPDIR=`mktemp -d`
-FILE_NAME=`date -u -Iminutes`
+FILE_NAME=$(date -u +'%Y%m%dT%H%M%SZ')
 FILE_PATH=$TMPDIR/$FILE_NAME
 consul snapshot save $FILE_PATH
 echo "Snapshot exported: $FILE_PATH"
+FILE_HASH_MD5=$(openssl md5 -binary < $FILE_PATH | base64)
+FILE_HASH_SHA256=$(openssl dgst -sha256 -hex < $FILE_PATH 2>/dev/null | sed 's/^.* //')
 
 echo "Getting credentials lease from vault..."
 LEASE_DATA=$(curl -s -k -H "X-Vault-Token: $VAULT_TOKEN" "$VAULT_ADDR/v1/aws/sts/$VAULT_STS_ROLE?ttl=900")
@@ -38,13 +42,13 @@ AWS_SECRET_ACCESS_KEY=$(echo $LEASE_DATA | jq -r .data.secret_key)
 AWS_SECURITY_TOKEN=$(echo $LEASE_DATA | jq -r .data.security_token)
 echo "Lease ID: $LEASE_ID"
 
-DATE=$(date -R)
-S3PATH=$PREFIX/$FILE_NAME
-COMMAND="PUT\n\napplication/octet-stream\n$DATE\nx-amz-security-token:$AWS_SECURITY_TOKEN\n/$BUCKET/$S3PATH"
-ENCODED=$(echo -en $COMMAND | openssl sha1 -hmac $AWS_SECRET_ACCESS_KEY -binary | base64)
-
-echo "Uploading to S3: $S3PATH"
-curl -vvv -f -s -X PUT -T "$FILE_PATH" -H "Host: $BUCKET.s3.amazonaws.com" -H "Date: $DATE" -H "Content-Type: application/octet-stream" -H "Authorization: AWS $AWS_ACCESS_KEY_ID:$ENCODED" -H "x-amz-security-token: $AWS_SECURITY_TOKEN" "https://$BUCKET.s3.amazonaws.com/$S3PATH"
+s3cmd put \
+      --access_key=$AWS_ACCESS_KEY_ID \
+      --secret_key=$AWS_SECRET_ACCESS_KEY \
+      --access_token=$AWS_SECURITY_TOKEN \
+      --content-type=application/octet-stream \
+      --add-header="Content-MD5: $FILE_HASH_MD5" \
+      $FILE_PATH s3://$BUCKET/$PREFIX/$FILE_NAME
 BACKUP_RESULT=$?
 echo "Upload complete"
 
